@@ -1,5 +1,6 @@
 import sys
 import os
+from pathlib import Path
 from types import ModuleType
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -240,3 +241,218 @@ class TestMarkCommand:
         output = capsys.readouterr().out
         assert "mark [title]" in output
         assert "omit title to be prompted" in output
+
+
+@pytest.fixture
+def populated_collection() -> BookCollection:
+    collection = BookCollection()
+    collection.add_book("The Hobbit", "J.R.R. Tolkien", 1937)
+    collection.add_book("Tolkien Essays", "Tolkien", 2000)
+    collection.add_book("Dune", "Frank Herbert", 1965)
+    collection.add_book("1984", "George Orwell", 1949)
+    collection.mark_as_read("The Hobbit")
+    collection.mark_as_read("1984")
+    return collection
+
+
+class TestSearchBooks:
+    @pytest.mark.parametrize("query, expected_titles", [
+        ("hob", ["The Hobbit"]),
+        ("  TOLKIEN  ", ["The Hobbit", "Tolkien Essays"]),
+        ("George Orwell", ["1984"]),
+        ("nonexistent", []),
+    ])
+    def test_matches(
+        self,
+        populated_collection: BookCollection,
+        query: str,
+        expected_titles: list[str],
+    ) -> None:
+        results = populated_collection.search_books(query)
+
+        assert [book.title for book in results] == expected_titles
+
+    @pytest.mark.parametrize("query", ["", "   "])
+    def test_blank_query(self, query: str) -> None:
+        with pytest.raises(ValueError, match="Search text cannot be empty"):
+            BookCollection().search_books(query)
+
+    def test_empty_collection(self) -> None:
+        assert BookCollection().search_books("hobbit") == []
+
+
+class TestFilterByReadStatus:
+    @pytest.mark.parametrize("read, expected_titles", [
+        (True, ["The Hobbit", "1984"]),
+        (False, ["Tolkien Essays", "Dune"]),
+    ])
+    def test_matching_status(
+        self,
+        populated_collection: BookCollection,
+        read: bool,
+        expected_titles: list[str],
+    ) -> None:
+        results = populated_collection.filter_by_read_status(read)
+
+        assert [book.title for book in results] == expected_titles
+
+    @pytest.mark.parametrize("read", [True, False])
+    def test_no_matching_status(
+        self, populated_collection: BookCollection, read: bool,
+    ) -> None:
+        for book in populated_collection.books:
+            book.read = not read
+
+        assert populated_collection.filter_by_read_status(read) == []
+
+    @pytest.mark.parametrize("read", [True, False])
+    def test_empty_collection(self, read: bool) -> None:
+        assert BookCollection().filter_by_read_status(read) == []
+
+
+class TestSearchAndFilterCommands:
+    @pytest.mark.parametrize("args, prompted_input, expected_titles", [
+        (["search"], "tolkien", ["The Hobbit", "Tolkien Essays"]),
+        (["search", "hob"], None, ["The Hobbit"]),
+        (["search", "George Orwell"], None, ["1984"]),
+        (["search", "George", "Orwell"], None, ["1984"]),
+        (["search", "  TOLKIEN  "], None, ["The Hobbit", "Tolkien Essays"]),
+        (["filter"], " read ", ["The Hobbit", "1984"]),
+        (["filter", "READ"], None, ["The Hobbit", "1984"]),
+        (["filter", "  unread  "], None, ["Tolkien Essays", "Dune"]),
+    ])
+    def test_results_are_read_only(
+        self,
+        book_app_module: ModuleType,
+        populated_collection: BookCollection,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        args: list[str],
+        prompted_input: str | None,
+        expected_titles: list[str],
+    ) -> None:
+        data_file = Path(books.DATA_FILE)
+        saved_data = data_file.read_bytes()
+        original_books = [
+            vars(book).copy() for book in populated_collection.list_books()
+        ]
+        monkeypatch.setattr(book_app_module, "collection", populated_collection)
+
+        def get_input(prompt: str) -> str:
+            assert prompted_input is not None, "Inline arguments must not prompt."
+            return prompted_input
+
+        def reject_save() -> None:
+            pytest.fail("Search and filter must not save books.")
+
+        monkeypatch.setattr("builtins.input", get_input)
+        monkeypatch.setattr(populated_collection, "save_books", reject_save)
+        monkeypatch.setattr(sys, "argv", ["book_app.py", *args])
+
+        book_app_module.main()
+
+        output = capsys.readouterr().out
+        result_lines = [
+            line for line in output.splitlines() if ". [" in line
+        ]
+        expected_books = [
+            book for book in populated_collection.books
+            if book.title in expected_titles
+        ]
+        assert result_lines == [
+            f"{index}. [{'✓' if book.read else ' '}] "
+            f"{book.title} by {book.author} ({book.year})"
+            for index, book in enumerate(expected_books, start=1)
+        ]
+        assert [
+            vars(book) for book in populated_collection.list_books()
+        ] == original_books
+        assert data_file.read_bytes() == saved_data
+
+    @pytest.mark.parametrize("args, prompted_input, error", [
+        (["search"], "", "Search text cannot be empty"),
+        (["search"], "   ", "Search text cannot be empty"),
+        (["search", ""], None, "Search text cannot be empty"),
+        (["search", "   "], None, "Search text cannot be empty"),
+        (["filter"], "", "Read status must be 'read' or 'unread'"),
+        (["filter"], "finished", "Read status must be 'read' or 'unread'"),
+        (["filter", ""], None, "Read status must be 'read' or 'unread'"),
+        (["filter", "   "], None, "Read status must be 'read' or 'unread'"),
+        (["filter", "finished"], None, "Read status must be 'read' or 'unread'"),
+        (["filter", "read", "unread"], None,
+         "Read status must be 'read' or 'unread'"),
+    ])
+    def test_invalid_input(
+        self,
+        book_app_module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        args: list[str],
+        prompted_input: str | None,
+        error: str,
+    ) -> None:
+        def get_input(prompt: str) -> str:
+            assert prompted_input is not None, "Blank arguments must not prompt."
+            return prompted_input
+
+        monkeypatch.setattr("builtins.input", get_input)
+        monkeypatch.setattr(sys, "argv", ["book_app.py", *args])
+
+        book_app_module.main()
+
+        assert f"Error: {error}." in capsys.readouterr().out
+
+    @pytest.mark.parametrize("args", [
+        ["search", "hobbit"],
+        ["filter", "read"],
+        ["filter", "unread"],
+    ])
+    @pytest.mark.parametrize("missing_file", [False, True])
+    def test_empty_collection(
+        self,
+        book_app_module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        args: list[str],
+        missing_file: bool,
+    ) -> None:
+        data_file = Path(books.DATA_FILE)
+        if missing_file:
+            data_file.unlink()
+            monkeypatch.setattr(book_app_module, "collection", BookCollection())
+        monkeypatch.setattr(sys, "argv", ["book_app.py", *args])
+
+        book_app_module.main()
+
+        assert capsys.readouterr().out.strip() == "No books found."
+        assert data_file.exists() is not missing_file
+
+    def test_search_without_matches(
+        self,
+        book_app_module: ModuleType,
+        populated_collection: BookCollection,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(book_app_module, "collection", populated_collection)
+        monkeypatch.setattr(sys, "argv", ["book_app.py", "search", "nonexistent"])
+
+        book_app_module.main()
+
+        assert capsys.readouterr().out.strip() == "No books found."
+
+    def test_help(
+        self,
+        book_app_module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(sys, "argv", ["book_app.py", "help"])
+
+        book_app_module.main()
+
+        output = capsys.readouterr().out
+        assert "search [text]" in output
+        assert "omit text to be prompted" in output
+        assert "filter [read|unread]" in output
+        assert "omit status to be prompted" in output

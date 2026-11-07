@@ -74,6 +74,32 @@ def handle_mark_as_read(title: str | None = None) -> None:
         print(f'\nBook "{title}" not found.\n')
 
 
+def handle_search(query: str | None = None) -> None:
+    if query is None:
+        query = input("Search title or author: ")
+
+    try:
+        books = collection.search_books(query)
+    except ValueError as e:
+        print(f"\nError: {e}\n")
+        return
+
+    show_books(books)
+
+
+def handle_filter(status: str | None = None) -> None:
+    if status is None:
+        status = input("Read status (read/unread): ")
+
+    status = status.strip().lower()
+    if status not in ("read", "unread"):
+        print("\nError: Read status must be 'read' or 'unread'.\n")
+        return
+
+    books = collection.filter_by_read_status(status == "read")
+    show_books(books)
+
+
 def show_help() -> None:
     print("""
 Book Collection Helper
@@ -84,6 +110,8 @@ Commands:
   remove   - Remove a book by title
   find     - Find books by author
   mark [title] - Mark a book as read; omit title to be prompted
+  search [text] - Search titles or authors; omit text to be prompted
+  filter [read|unread] - Show books by read status; omit status to be prompted
   help     - Show this help message
 """)
 
@@ -106,6 +134,12 @@ def main() -> None:
     elif command == "mark":
         title = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
         handle_mark_as_read(title)
+    elif command == "search":
+        query = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
+        handle_search(query)
+    elif command == "filter":
+        status = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
+        handle_filter(status)
     elif command == "help":
         show_help()
     else:

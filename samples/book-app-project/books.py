@@ -91,3 +91,16 @@ class BookCollection:
     def find_by_author(self, author: str) -> List[Book]:
         """Find all books by a given author."""
         return [b for b in self.books if b.author.lower() == author.lower()]
+
+    def search_books(self, query: str) -> List[Book]:
+        query = query.strip().lower()
+        if not query:
+            raise ValueError("Search text cannot be empty.")
+
+        return [
+            book for book in self.books
+            if query in book.title.lower() or query in book.author.lower()
+        ]
+
+    def filter_by_read_status(self, read: bool) -> List[Book]:
+        return [book for book in self.books if book.read == read]
