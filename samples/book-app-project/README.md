@@ -32,8 +32,18 @@ python book_app.py list
 python book_app.py add
 python book_app.py find
 python book_app.py remove
+python book_app.py mark
+python book_app.py mark "The Hobbit"
 python book_app.py help
 ```
+
+Run `mark` alone to be prompted for a book title, or include the title after
+the command. Titles match without regard to uppercase or lowercase letters.
+Blank titles show an error, and missing books show a not-found message.
+Marking an already-read book is also successful.
+
+The read status is saved to `data.json`. Run `python book_app.py list` to see
+a checkmark next to books marked as read.
 
 ## Running Tests
 

@@ -59,7 +59,22 @@ def handle_find():
     show_books(books)
 
 
-def show_help():
+def handle_mark_as_read(title: str | None = None) -> None:
+    if title is None:
+        title = input("Enter the title of the book to mark as read: ")
+
+    title = title.strip()
+    if not title:
+        print("\nError: Book title cannot be empty.\n")
+        return
+
+    if collection.mark_as_read(title):
+        print(f'\nBook "{title}" marked as read successfully.\n')
+    else:
+        print(f'\nBook "{title}" not found.\n')
+
+
+def show_help() -> None:
     print("""
 Book Collection Helper
 
@@ -68,11 +83,12 @@ Commands:
   add      - Add a new book
   remove   - Remove a book by title
   find     - Find books by author
+  mark [title] - Mark a book as read; omit title to be prompted
   help     - Show this help message
 """)
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         show_help()
         return
@@ -87,6 +103,9 @@ def main():
         handle_remove()
     elif command == "find":
         handle_find()
+    elif command == "mark":
+        title = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
+        handle_mark_as_read(title)
     elif command == "help":
         show_help()
     else:

@@ -13,6 +13,27 @@ class Book:
     read: bool = False
 
 
+def get_book_statistics(books: list[Book]) -> dict[str, int | Book | None]:
+    """Return counts and books with the lowest/highest year, including year 0.
+
+    Empty lists return None for oldest/newest; tied years use the first book.
+    """
+    if not isinstance(books, list) or any(
+        not isinstance(book, Book) for book in books
+    ):
+        raise TypeError("books must be a list of Book objects.")
+
+    total = len(books)
+    read = sum(book.read for book in books)
+    return {
+        "total": total,
+        "read": read,
+        "unread": total - read,
+        "oldest": min(books, key=lambda book: book.year, default=None),
+        "newest": max(books, key=lambda book: book.year, default=None),
+    }
+
+
 class BookCollection:
     def __init__(self):
         self.books: List[Book] = []
