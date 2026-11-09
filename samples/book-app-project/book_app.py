@@ -122,29 +122,28 @@ def main() -> None:
         return
 
     command = sys.argv[1].lower()
+    argument = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
 
-    if command == "list":
-        handle_list()
-    elif command == "add":
-        handle_add()
-    elif command == "remove":
-        handle_remove()
-    elif command == "find":
-        handle_find()
-    elif command == "mark":
-        title = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
-        handle_mark_as_read(title)
-    elif command == "search":
-        query = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
-        handle_search(query)
-    elif command == "filter":
-        status = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
-        handle_filter(status)
-    elif command == "help":
-        show_help()
-    else:
-        print("Unknown command.\n")
-        show_help()
+    match command:
+        case "list":
+            handle_list()
+        case "add":
+            handle_add()
+        case "remove":
+            handle_remove()
+        case "find":
+            handle_find()
+        case "mark":
+            handle_mark_as_read(argument)
+        case "search":
+            handle_search(argument)
+        case "filter":
+            handle_filter(argument)
+        case "help":
+            show_help()
+        case _:
+            print("Unknown command.\n")
+            show_help()
 
 
 if __name__ == "__main__":
