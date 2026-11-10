@@ -13,7 +13,7 @@ book, with an average rating shown in book listings.
 
 * Reads books from a JSON file (our database)
 * Adds, shows, edits, and removes reader ratings and optional written reviews
-* Input checking is weak in some areas
+* Validates book fields when adding books and loading saved data
 * Some tests exist but probably not enough
 
 ---
@@ -50,6 +50,19 @@ Run `mark` alone to be prompted for a book title, or include the title after
 the command. Titles match without regard to uppercase or lowercase letters.
 Blank titles show an error, and missing books show a not-found message.
 Marking an already-read book is also successful.
+
+When adding a book, title and author must contain text. The publication year
+must be a whole number of `0` or greater; leave it blank to save `0` for an
+unknown year. Future years are allowed. Saved books follow the same rules,
+and their read status must be a JSON boolean (`true` or `false`), not text
+or a number. Invalid book fields raise an error without changing saved data.
+If loading fails, repair the invalid fields in `data.json` before restarting.
+The sample uses `Unknown Author` when an author's name is unavailable.
+
+If `data.json` contains invalid JSON, the app stops with an error instead of
+starting an empty collection. The damaged file is left unchanged; repair it
+or restore a backup before restarting. A missing file still starts an empty
+collection, and adding the first book creates it.
 
 The read status is saved to `data.json`. Run `python book_app.py list` to see
 a checkmark next to books marked as read.

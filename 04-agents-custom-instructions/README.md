@@ -688,7 +688,7 @@ The hands-on example created `reviewer` and `documentor` agents. Now practice cr
 
 1. Create 3 agent files (`.agent.md`) tailored to the book app, one per agent, placed in `.github/agents/`
 2. Your agents:
-   - **data-validator**: checks `data.json` for missing or malformed data (empty authors, year=0, missing fields)
+   - **data-validator**: checks `data.json` for missing or malformed data (empty authors, negative or non-integer years, missing fields)
    - **error-handler**: reviews Python code for inconsistent error handling and suggests a unified approach
    - **doc-writer**: generates or updates docstrings and README content
 3. Use each agent on the book app:
@@ -714,7 +714,7 @@ You analyze JSON data files for missing or malformed entries.
 
 **Focus areas:**
 - Empty or missing author fields
-- Invalid years (year=0, future years, negative years)
+- Invalid years (negative or non-integer values; 0 means unknown and future years are allowed)
 - Missing required fields (title, author, year, read)
 - Duplicate entries
 ```

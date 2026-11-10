@@ -35,6 +35,16 @@ class Book:
     reviews: list[Review] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.title, str) or not self.title.strip():
+            raise ValueError("Book title must be a nonblank string.")
+        if not isinstance(self.author, str) or not self.author.strip():
+            raise ValueError("Book author must be a nonblank string.")
+        if type(self.year) is not int or self.year < 0:
+            raise ValueError(
+                "Publication year must be a whole number of 0 or greater."
+            )
+        if type(self.read) is not bool:
+            raise ValueError("Read status must be a boolean (true or false).")
         if not isinstance(self.reviews, list) or any(
             not isinstance(review, Review) for review in self.reviews
         ):
@@ -100,9 +110,12 @@ class BookCollection:
             self.books = loaded_books
         except FileNotFoundError:
             self.books = []
-        except json.JSONDecodeError:
-            print("Warning: data.json is corrupted. Starting with empty collection.")
-            self.books = []
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Cannot load {DATA_FILE}: invalid JSON. "
+                "Repair the file or restore a backup before restarting; "
+                "the file has not been changed."
+            ) from e
 
     def save_books(self) -> None:
         """Save the current book collection to JSON."""

@@ -810,7 +810,7 @@ Practice using MCP servers together on the book app project. Complete these step
 3. **Explore the code**: Ask Copilot to use the filesystem server to:
    - List all functions in `samples/book-app-project/books.py`
    - Check which functions in `samples/book-app-project/utils.py` are missing type hints
-   - Read `samples/book-app-project/data.json` and identify any data quality issues (hint: look at the last entry)
+   - Read `samples/book-app-project/data.json` and distinguish missing information from invalid fields (hint: look at the last entry)
 4. **Check repository activity**: Ask Copilot to use GitHub MCP to:
    - List recent commits that touched files in `samples/book-app-project/`
    - Check if there are any open issues or pull requests
@@ -836,18 +836,21 @@ copilot
 
 Use the JSON from the [Complete Configuration](#complete-configuration-file) section above and save it as `~/.copilot/mcp-config.json`.
 
-**Step 3: Data quality issue to look for**
+**Step 3: Missing information versus invalid fields**
 
 The last book in `data.json` is:
 ```json
 {
   "title": "Mysterious Book",
-  "author": "",
+  "author": "Unknown Author",
   "year": 0,
   "read": false
 }
 ```
-An empty author and year of 0. That's the data quality issue!
+`Unknown Author` is a placeholder, and `0` means the publication year is unknown.
+These values pass the app's validation, but they still identify information
+you could research and improve. A blank author or a negative year would be
+invalid and prevent the app from loading the file.
 
 **Step 5: Test coverage comparison**
 

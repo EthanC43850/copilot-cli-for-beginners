@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -125,6 +126,93 @@ def test_get_book_statistics_invalid_input(invalid_books: object) -> None:
         get_book_statistics(invalid_books)
 
 
+@pytest.mark.parametrize("field, value, error", [
+    ("title", "", "Book title"),
+    ("title", " \t\n", "Book title"),
+    ("title", None, "Book title"),
+    ("title", 42, "Book title"),
+    ("author", "", "Book author"),
+    ("author", " \t\n", "Book author"),
+    ("author", None, "Book author"),
+    ("author", 42, "Book author"),
+    ("year", -1, "Publication year"),
+    ("year", "1949", "Publication year"),
+    ("year", 1949.0, "Publication year"),
+    ("year", None, "Publication year"),
+    ("year", True, "Publication year"),
+    ("year", False, "Publication year"),
+    ("read", "false", "Read status"),
+    ("read", 0, "Read status"),
+    ("read", 1, "Read status"),
+    ("read", None, "Read status"),
+])
+class TestBookValidation:
+    def test_invalid_fields(
+        self, field: str, value: object, error: str,
+    ) -> None:
+        values = {
+            "title": "1984", "author": "George Orwell",
+            "year": 1949, "read": False,
+        }
+        values[field] = value
+
+        with pytest.raises(ValueError, match=error):
+            Book(**values)
+
+    def test_invalid_saved_fields_preserve_data(
+        self, field: str, value: object, error: str,
+    ) -> None:
+        collection = BookCollection()
+        collection.add_book("Dune", "Frank Herbert", 1965)
+        original_books = collection.books.copy()
+        records = [asdict(book) for book in original_books]
+        invalid_record = asdict(original_books[0])
+        invalid_record[field] = value
+        records.append(invalid_record)
+        data_file = Path(books.DATA_FILE)
+        data_file.write_text(json.dumps(records), encoding="utf-8")
+        saved = data_file.read_bytes()
+
+        with pytest.raises(ValueError, match=error):
+            collection.load_books()
+        with pytest.raises(ValueError, match=error):
+            BookCollection()
+
+        assert collection.books == original_books
+        assert data_file.read_bytes() == saved
+
+
+@pytest.mark.parametrize("year", [0, 1949, 3000])
+@pytest.mark.parametrize("read", [False, True])
+def test_valid_book_fields(year: int, read: bool) -> None:
+    book = Book("1984", "George Orwell", year, read=read)
+
+    assert book.year == year
+    assert book.read is read
+    assert book.reviews == []
+
+
+@pytest.mark.parametrize("field, value", [
+    ("title", ""), ("author", "   "), ("year", -1), ("year", True),
+])
+def test_invalid_add_preserves_collection_and_file(
+    field: str, value: object,
+) -> None:
+    collection = BookCollection()
+    collection.add_book("Dune", "Frank Herbert", 1965)
+    original_books = collection.books.copy()
+    data_file = Path(books.DATA_FILE)
+    saved = data_file.read_bytes()
+    values = {"title": "1984", "author": "George Orwell", "year": 1949}
+    values[field] = value
+
+    with pytest.raises(ValueError):
+        collection.add_book(**values)
+
+    assert collection.books == original_books
+    assert data_file.read_bytes() == saved
+
+
 class TestPrintBooks:
     def test_empty_collection(
         self, capsys: pytest.CaptureFixture[str],
@@ -162,6 +250,52 @@ def book_app_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
     monkeypatch.setattr(book_app, "collection", BookCollection())
     return book_app
+
+
+class TestAddCommand:
+    @pytest.mark.parametrize("answers, error", [
+        (["", "Author", "2000"], "Book title"),
+        (["   ", "Author", "2000"], "Book title"),
+        (["Title", "", "2000"], "Book author"),
+        (["Title", "   ", "2000"], "Book author"),
+        (["Title", "Author", "-1"], "Publication year"),
+    ])
+    def test_invalid_fields_do_not_save(
+        self,
+        book_app_module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        answers: list[str],
+        error: str,
+    ) -> None:
+        responses = iter(answers)
+        monkeypatch.setattr("builtins.input", lambda _: next(responses))
+        monkeypatch.setattr(sys, "argv", ["book_app.py", "add"])
+        data_file = Path(books.DATA_FILE)
+        saved = data_file.read_bytes()
+
+        book_app_module.main()
+
+        output = capsys.readouterr().out
+        assert f"Error: {error}" in output
+        assert "Book added successfully" not in output
+        assert book_app_module.collection.list_books() == []
+        assert data_file.read_bytes() == saved
+
+    def test_blank_year_is_saved_as_unknown(
+        self,
+        book_app_module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        responses = iter(["  Title  ", "  Author  ", ""])
+        monkeypatch.setattr("builtins.input", lambda _: next(responses))
+        monkeypatch.setattr(sys, "argv", ["book_app.py", "add"])
+
+        book_app_module.main()
+
+        assert "Book added successfully" in capsys.readouterr().out
+        assert BookCollection().books == [Book("Title", "Author", 0)]
 
 
 class TestMarkCommand:
@@ -232,7 +366,7 @@ class TestMarkCommand:
         title_args: list[str],
         prompted_title: str | None,
     ) -> None:
-        book = book_app_module.collection.add_book("", "Author", 2000)
+        book = book_app_module.collection.add_book("Title", "Author", 2000)
 
         def get_title(prompt: str) -> str:
             assert prompted_title is not None, "Blank arguments must not prompt."
@@ -644,6 +778,60 @@ class TestReviews:
         reloaded = BookCollection()
         assert [book.title for book in reloaded.books] == ["Dune"]
         assert reloaded.list_reviews("Dune") == [Review("Alice", 5)]
+
+
+class TestBookLoading:
+    @pytest.mark.parametrize("contents", ["", '[{"title": "Dune"}', "not JSON"])
+    def test_corrupted_json_preserves_file_and_existing_collection(
+        self, contents: str,
+    ) -> None:
+        collection = BookCollection()
+        collection.add_book("Dune", "Frank Herbert", 1965)
+        original_books = collection.books.copy()
+        data_file = Path(books.DATA_FILE)
+        data_file.write_text(contents, encoding="utf-8")
+        saved = data_file.read_bytes()
+
+        with pytest.raises(ValueError, match="Repair the file"):
+            collection.load_books()
+        with pytest.raises(ValueError, match="Repair the file"):
+            BookCollection()
+
+        assert collection.books == original_books
+        assert data_file.read_bytes() == saved
+
+    def test_add_command_cannot_overwrite_corrupted_json(self) -> None:
+        data_file = Path(books.DATA_FILE)
+        data_file.write_text('[{"title": "Existing book"', encoding="utf-8")
+        saved = data_file.read_bytes()
+        script = Path(__file__).resolve().parents[1] / "book_app.py"
+
+        result = subprocess.run(
+            [sys.executable, str(script), "add"],
+            cwd=data_file.parent,
+            input="New book\nAuthor\n2000\n",
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        assert result.returncode != 0
+        assert "Repair the file" in result.stderr
+        assert "Book added successfully" not in result.stdout
+        assert data_file.read_bytes() == saved
+
+    def test_missing_file_is_created_on_first_add(self) -> None:
+        data_file = Path(books.DATA_FILE)
+        data_file.unlink()
+
+        collection = BookCollection()
+
+        assert collection.list_books() == []
+        assert not data_file.exists()
+
+        collection.add_book("Dune", "Frank Herbert", 1965)
+
+        assert BookCollection().books == [Book("Dune", "Frank Herbert", 1965)]
 
 
 class TestReviewPersistence:
