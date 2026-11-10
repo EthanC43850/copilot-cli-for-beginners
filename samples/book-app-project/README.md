@@ -4,13 +4,15 @@
 
 A Python app for managing books you have or want to read.
 It can add, remove, and list books. Also mark them as read, search titles and
-authors, and filter by read status.
+authors, and filter by read status. Multiple readers can rate and review each
+book, with an average rating shown in book listings.
 
 ---
 
 ## Current Features
 
 * Reads books from a JSON file (our database)
+* Adds, shows, edits, and removes reader ratings and optional written reviews
 * Input checking is weak in some areas
 * Some tests exist but probably not enough
 
@@ -20,7 +22,7 @@ authors, and filter by read status.
 
 * `book_app.py` - Main CLI entry point
 * `books.py` - BookCollection class with data logic
-* `utils.py` - Helper functions for UI and input
+* `utils.py` - Shared book display and rating summaries, plus input helpers
 * `data.json` - Sample book data
 * `tests/test_books.py` - Starter pytest tests
 
@@ -62,6 +64,48 @@ Filter status also ignores capitalization. Both commands ignore surrounding
 spaces, preserve book order, and leave your books and saved data unchanged.
 Blank search text and invalid filters show errors. If nothing matches, the app
 prints `No books found.`.
+
+## Ratings and Reviews
+
+Run these commands from `samples/book-app-project`:
+
+```bash
+python book_app.py review-add "The Hobbit"
+python book_app.py reviews "The Hobbit"
+python book_app.py review-edit "The Hobbit"
+python book_app.py review-remove "The Hobbit"
+```
+
+Omit the title from any review command to be prompted for it. Titles match
+without regard to capitalization and ignore surrounding spaces, just like
+reader names. If several books have the same title, the first match is used.
+Blank titles and missing books show errors.
+
+`review-add` prompts for a reader name, a whole-number rating from **1 to 5**,
+and optional written review text. Press Enter at the text prompt to leave it
+empty. Each reader can have one review per book: `Alice`, `alice`, and
+` Alice ` identify the same reader. Adding a duplicate shows an error; use
+`review-edit` to change it.
+
+`reviews` shows each reader's rating and any written text, plus the average
+and review count. Book listings, author lookup, search, and status filtering
+also show a summary such as `4.5/5 (2 reviews)`. Every rating counts toward the
+average, including entries without written text. A book with no reviews shows
+`Not rated (0 reviews)`.
+
+`review-edit` asks for the reader name, shows the current values, and prompts
+for a replacement rating and text. A rating is always required; **blank text
+clears the previous written review**. The reader name stays unchanged.
+`review-remove` asks for the reader name and removes their rating and text.
+Removing a book also removes its reviews.
+
+Changes are saved in `data.json` and remain after restarting the app. Existing
+book files without reviews still load without manual changes. Invalid input
+and missing review targets show errors without changing saved data.
+
+**Local labels, not accounts:** reader names do not verify anyone's identity.
+Anyone who can use this local app and access its data can edit or remove any
+reader's review. This feature does not provide sign-in or permissions.
 
 ## Running Tests
 

@@ -1,29 +1,15 @@
 import sys
 
-from books import Book, BookCollection
+from books import BookCollection
+from utils import print_books, rating_summary
 
 
 collection = BookCollection()
 
 
-def show_books(books: list[Book]) -> None:
-    """Display books in a user-friendly format."""
-    if not books:
-        print("No books found.")
-        return
-
-    print("\nYour Book Collection:\n")
-
-    for index, book in enumerate(books, start=1):
-        status = "✓" if book.read else " "
-        print(f"{index}. [{status}] {book.title} by {book.author} ({book.year})")
-
-    print()
-
-
 def handle_list() -> None:
     books = collection.list_books()
-    show_books(books)
+    print_books(books)
 
 
 def handle_add() -> None:
@@ -56,7 +42,7 @@ def handle_find() -> None:
     author = input("Author name: ").strip()
     books = collection.find_by_author(author)
 
-    show_books(books)
+    print_books(books)
 
 
 def handle_mark_as_read(title: str | None = None) -> None:
@@ -84,7 +70,7 @@ def handle_search(query: str | None = None) -> None:
         print(f"\nError: {e}\n")
         return
 
-    show_books(books)
+    print_books(books)
 
 
 def handle_filter(status: str | None = None) -> None:
@@ -97,7 +83,63 @@ def handle_filter(status: str | None = None) -> None:
         return
 
     books = collection.filter_by_read_status(status == "read")
-    show_books(books)
+    print_books(books)
+
+
+def handle_reviews(title: str | None = None) -> None:
+    if title is None:
+        title = input("Book title: ")
+
+    try:
+        reviews = collection.list_reviews(title)
+    except ValueError as e:
+        print(f"\nError: {e}\n")
+        return
+
+    book = collection.find_book_by_title(title.strip())
+    print(f"\nReviews for {book.title} - {rating_summary(book)}\n")
+    if not reviews:
+        print("No reviews yet.\n")
+        return
+    for review in reviews:
+        print(f"{review.reader}: {review.rating}/5")
+        if review.text:
+            print(f"  {review.text}")
+    print()
+
+
+def handle_review_change(action: str, title: str | None = None) -> None:
+    if title is None:
+        title = input("Book title: ")
+
+    try:
+        collection.list_reviews(title)
+        reader = input("Reader name: ")
+        if action == "review-remove":
+            collection.remove_review(title, reader)
+            print("\nReview removed successfully.\n")
+            return
+        if action == "review-edit":
+            current = collection.get_review(title, reader)
+            print(f"Current rating: {current.rating}/5")
+            print(f"Current review: {current.text or '(no text)'}")
+        try:
+            rating = int(input("Rating (whole number, 1-5): ").strip())
+        except ValueError:
+            raise ValueError(
+                "Rating must be a whole number from 1 to 5."
+            ) from None
+        text = input(
+            "Review text (optional; blank clears text when editing): "
+        )
+        if action == "review-add":
+            collection.add_review(title, reader, rating, text)
+            print("\nReview added successfully.\n")
+        else:
+            collection.update_review(title, reader, rating, text)
+            print("\nReview updated successfully.\n")
+    except ValueError as e:
+        print(f"\nError: {e}\n")
 
 
 def show_help() -> None:
@@ -112,7 +154,14 @@ Commands:
   mark [title] - Mark a book as read; omit title to be prompted
   search [text] - Search titles or authors; omit text to be prompted
   filter [read|unread] - Show books by read status; omit status to be prompted
+  review-add [title] - Add a reader rating and optional review
+  reviews [title] - Show reader reviews and the average rating
+  review-edit [title] - Replace a reader's rating and review text
+  review-remove [title] - Remove a reader's rating and review
   help     - Show this help message
+
+Review commands: omit title to be prompted; changes prompt for reader details.
+Ratings are whole numbers from 1 to 5; blank text clears a review when editing.
 """)
 
 
@@ -139,6 +188,10 @@ def main() -> None:
             handle_search(argument)
         case "filter":
             handle_filter(argument)
+        case "reviews":
+            handle_reviews(argument)
+        case "review-add" | "review-edit" | "review-remove":
+            handle_review_change(command, argument)
         case "help":
             show_help()
         case _:

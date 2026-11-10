@@ -114,6 +114,11 @@ copilot
 
 **The key insight**: You directed specialists like an architect. They handled the details. You handled the vision.
 
+> 💡 **Explore another workflow**: The Python book app also supports adding,
+> viewing, editing, and removing reader ratings and reviews. See
+> [Ratings and Reviews](../samples/book-app-project/README.md#ratings-and-reviews)
+> for commands and local reader-name limitations.
+
 > 💡 **Going further**: For large multi-step plans like this, try `/fleet` to let Copilot run independent subtasks in parallel. See the [official docs](https://docs.github.com/copilot/concepts/agents/copilot-cli/fleet) for details.
 
 ---

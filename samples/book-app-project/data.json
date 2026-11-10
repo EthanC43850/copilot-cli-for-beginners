@@ -3,30 +3,46 @@
     "title": "The Hobbit",
     "author": "J.R.R. Tolkien",
     "year": 1937,
-    "read": false
+    "read": false,
+    "reviews": [
+      {
+        "reader": "E to the T H A N",
+        "rating": 5,
+        "text": "Buss"
+      },
+      {
+        "reader": "Mark",
+        "rating": 2,
+        "text": "Not buss"
+      }
+    ]
   },
   {
     "title": "1984",
     "author": "George Orwell",
     "year": 1949,
-    "read": true
+    "read": true,
+    "reviews": []
   },
   {
     "title": "Dune",
     "author": "Frank Herbert",
     "year": 1965,
-    "read": false
+    "read": false,
+    "reviews": []
   },
   {
     "title": "To Kill a Mockingbird",
     "author": "Harper Lee",
     "year": 1960,
-    "read": false
+    "read": false,
+    "reviews": []
   },
   {
     "title": "Mysterious Book",
     "author": "",
     "year": 0,
-    "read": false
+    "read": false,
+    "reviews": []
   }
 ]
