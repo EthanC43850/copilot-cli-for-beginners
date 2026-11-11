@@ -40,7 +40,11 @@ def handle_find() -> None:
     print("\nFind Books by Author\n")
 
     author = input("Author name: ").strip()
-    books = collection.find_by_author(author)
+    try:
+        books = collection.find_by_author(author)
+    except ValueError as e:
+        print(f"\nError: {e}\n")
+        return
 
     print_books(books)
 

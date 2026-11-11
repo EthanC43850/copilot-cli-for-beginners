@@ -141,6 +141,11 @@ Here's the mental model for combining everything:
 
 Real-world bug fixing with full tool integration:
 
+The primary book app already supports partial author names. Treat the report
+below as a historical example: verify the current behavior before proposing a
+fix. To reproduce the original bug, use `samples/book-app-buggy/books_buggy.py`;
+keep that intentionally buggy sample unchanged.
+
 ```bash
 copilot
 

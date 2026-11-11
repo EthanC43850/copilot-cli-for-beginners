@@ -423,6 +423,91 @@ def populated_collection() -> BookCollection:
     return collection
 
 
+class TestFindByAuthor:
+    @pytest.mark.parametrize("query, expected_titles", [
+        ("Tolkien", ["The Hobbit", "Tolkien Essays"]),
+        ("  tOLkIEN  ", ["The Hobbit", "Tolkien Essays"]),
+        ("J.R.R. Tolkien", ["The Hobbit"]),
+        ("Herb", ["Dune"]),
+        ("Hobbit", []),
+        ("nonexistent", []),
+    ])
+    def test_matches_are_author_only_and_read_only(
+        self,
+        populated_collection: BookCollection,
+        query: str,
+        expected_titles: list[str],
+    ) -> None:
+        original_books = [asdict(book) for book in populated_collection.books]
+        data_file = Path(books.DATA_FILE)
+        saved = data_file.read_bytes()
+
+        results = populated_collection.find_by_author(query)
+
+        assert [book.title for book in results] == expected_titles
+        assert [
+            asdict(book) for book in populated_collection.books
+        ] == original_books
+        assert data_file.read_bytes() == saved
+
+    @pytest.mark.parametrize("query", ["", "   ", None, 42])
+    def test_invalid_query(self, query: object) -> None:
+        with pytest.raises(ValueError, match="Author name must be a nonblank"):
+            BookCollection().find_by_author(query)
+
+    def test_empty_collection(self) -> None:
+        assert BookCollection().find_by_author("Tolkien") == []
+
+
+class TestFindCommand:
+    @pytest.mark.parametrize("query, expected", [
+        ("  tOLkIEN  ", ["The Hobbit", "Tolkien Essays"]),
+        ("nonexistent", []),
+    ])
+    def test_prompted_results(
+        self,
+        book_app_module: ModuleType,
+        populated_collection: BookCollection,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        query: str,
+        expected: list[str],
+    ) -> None:
+        monkeypatch.setattr(book_app_module, "collection", populated_collection)
+        monkeypatch.setattr("builtins.input", lambda _: query)
+        monkeypatch.setattr(sys, "argv", ["book_app.py", "find"])
+        data_file = Path(books.DATA_FILE)
+        saved = data_file.read_bytes()
+
+        book_app_module.main()
+
+        output = capsys.readouterr().out
+        result_lines = [line for line in output.splitlines() if ". [" in line]
+        assert len(result_lines) == len(expected)
+        for line, title in zip(result_lines, expected):
+            assert f"{title} by " in line
+        if not expected:
+            assert "No books found." in output
+        assert data_file.read_bytes() == saved
+
+    @pytest.mark.parametrize("query", ["", "   "])
+    def test_blank_query_shows_error(
+        self,
+        book_app_module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        query: str,
+    ) -> None:
+        monkeypatch.setattr("builtins.input", lambda _: query)
+        monkeypatch.setattr(sys, "argv", ["book_app.py", "find"])
+
+        book_app_module.main()
+
+        assert "Error: Author name must be a nonblank string." in (
+            capsys.readouterr().out
+        )
+
+
 class TestSearchBooks:
     @pytest.mark.parametrize("query, expected_titles", [
         ("hob", ["The Hobbit"]),

@@ -70,7 +70,10 @@ a checkmark next to books marked as read.
 Run `search` alone to be prompted, or include your search text after the command.
 Search finds partial matches in either a title or an author name, ignoring
 uppercase or lowercase letters. For example, `search "tolkien"` finds books by
-`J.R.R. Tolkien`. The existing `find` command still requires the full author name.
+`J.R.R. Tolkien`. Run `find` to search authors only: enter a full or partial
+name such as `Tolkien`. Author lookup ignores capitalization and surrounding
+spaces, preserves book order, and does not change saved data. Blank author
+input shows a validation error; no matches prints `No books found.`.
 
 Run `filter` alone to be prompted, or use `filter read` or `filter unread`.
 Filter status also ignores capitalization. Both commands ignore surrounding
